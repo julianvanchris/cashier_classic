@@ -1,0 +1,7 @@
+gspread
+pandas
+oauth2client
+streamlit
+uuid
+datetime
+st-gsheets-connection
