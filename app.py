@@ -132,14 +132,44 @@ for category, items in menu_items.items():
 # Display summary of all selected items
 st.write("## Summary")
 if st.session_state['summary']:
-    summary = pd.DataFrame(
-        [(item, details['price'], details['quantity'], details['price'] * details['quantity'])
-         for item, details in st.session_state['summary'].items()],
-        columns=["Item", "Price", "Quantity", "Subtotal"]
-    )
-    st.dataframe(summary)
+    summary_data = []
+    for item, details in st.session_state['summary'].items():
+        subtotal = details['price'] * details['quantity']
+        summary_data.append({
+            "Item": item,
+            "Price": details['price'],
+            "Quantity": details['quantity'],
+            "Subtotal": subtotal
+        })
+
+    summary = pd.DataFrame(summary_data)
     total_quantity = summary["Quantity"].sum()
     total_price = summary["Subtotal"].sum()
+
+    for item, details in st.session_state['summary'].items():
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.write(item)
+        with col2:
+            st.write(f"Rp {details['price']:,}")
+        with col3:
+            if st.button(f"➖", key=f"decrease_{item}"):
+                if details['quantity'] > 1:
+                    st.session_state['summary'][item]['quantity'] -= 1
+                else:
+                    del st.session_state['summary'][item]
+                st.rerun()
+            st.write(details['quantity'])
+            if st.button(f"➕", key=f"increase_{item}"):
+                st.session_state['summary'][item]['quantity'] += 1
+                st.rerun()
+        with col4:
+            st.write(f"Rp {details['price'] * details['quantity']:,}")
+        with col5:
+            if st.button(f"❌ Remove", key=f"remove_{item}"):
+                del st.session_state['summary'][item]
+                st.rerun()
+
     st.write(f"**Total Quantity: {total_quantity}**")
     st.write(f"**Total Price: Rp {total_price:,}**")
 
@@ -147,12 +177,6 @@ if st.session_state['summary']:
     given_cash = st.number_input("Given Cash (Rp)", min_value=0, step=1000)
     change = given_cash - total_price if given_cash >= total_price else 0
     st.write(f"**Change: Rp {change:,}**")
-
-    for item in list(st.session_state['summary']):
-        if st.button(f"Remove {item}"):
-            del st.session_state['summary'][item]
-            st.rerun()
-            break
 
     # Disable the checkout button if given cash is less than the total price
     can_checkout = given_cash >= total_price
