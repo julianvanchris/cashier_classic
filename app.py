@@ -153,22 +153,16 @@ if st.session_state['summary']:
         with col2:
             st.write(f"Rp {details['price']:,}")
         with col3:
-            if st.button(f"➖", key=f"decrease_{item}"):
-                if details['quantity'] > 1:
-                    st.session_state['summary'][item]['quantity'] -= 1
-                else:
-                    del st.session_state['summary'][item]
-                st.rerun()
-            st.write(details['quantity'])
-            if st.button(f"➕", key=f"increase_{item}"):
-                st.session_state['summary'][item]['quantity'] += 1
-                st.rerun()
+            new_quantity = st.number_input(f"Quantity ({item})", min_value=0, value=details['quantity'], key=f"qty_{item}", step=1)
+            if new_quantity != details['quantity']:
+                st.session_state['summary'][item]['quantity'] = new_quantity
+                st.experimental_rerun()
         with col4:
             st.write(f"Rp {details['price'] * details['quantity']:,}")
         with col5:
             if st.button(f"❌ Remove", key=f"remove_{item}"):
                 del st.session_state['summary'][item]
-                st.rerun()
+                st.experimental_rerun()
 
     st.write(f"**Total Quantity: {total_quantity}**")
     st.write(f"**Total Price: Rp {total_price:,}**")
@@ -206,7 +200,7 @@ if st.session_state['summary']:
         st.write(f"**Change:** Rp {change:,}")
 
         st.session_state['summary'] = {}
-        st.rerun()
+        st.experimental_rerun()
 else:
     st.write("No items added to the summary.")
 
@@ -258,15 +252,6 @@ if selected_transaction_id:
         st.sidebar.write(f"**Given Cash: Rp {given_cash:,}**")
         st.sidebar.write(f"**Change: Rp {change:,}**")
 
-        # Add new menu item to the selected transaction
-        st.sidebar.write("### Add Menu Item")
-        selected_menu_item = st.sidebar.selectbox("Select Menu Item", [(item, price) for cat, items in menu_items.items() for item, price in items])
-        if selected_menu_item:
-            item, price = selected_menu_item
-            new_quantity = st.sidebar.number_input(f"Quantity ({item})", min_value=1, step=1, key=f"new_qty_{item}_{selected_transaction_id}")
-            if st.sidebar.button("Add Item"):
-                add_menu_item_to_transaction("00" + str(selected_transaction_id), item, price, new_quantity)
-
         # Download receipt as PDF
         if st.sidebar.button("Generate Receipt as PDF"):
             with st.spinner('Please wait...'):
@@ -277,3 +262,13 @@ if selected_transaction_id:
                     file_name=f"receipt_{selected_transaction_id}.pdf",
                     mime="application/pdf"
                 )
+
+
+        # Add new menu item to the selected transaction
+        # st.sidebar.write("### Add Menu Item")
+        # selected_menu_item = st.sidebar.selectbox("Select Menu Item", [(item, price) for cat, items in menu_items.items() for item, price in items])
+        # if selected_menu_item:
+        #     item, price = selected_menu_item
+        #     new_quantity = st.sidebar.number_input(f"Quantity ({item})", min_value=1, step=1, key=f"new_qty_{item}_{selected_transaction_id}")
+        #     if st.sidebar.button("Add Item"):
+        #         add_menu_item_to_transaction("00" + str(selected_transaction_id), item, price, new_quantity)
