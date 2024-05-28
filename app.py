@@ -50,6 +50,10 @@ if 'summary' not in st.session_state:
 if 'discount' not in st.session_state:
     st.session_state['discount'] = 'None'
 
+# Initialize session state for given cash
+if 'given_cash' not in st.session_state:
+    st.session_state['given_cash'] = 0
+
 def get_next_transaction_id():
     existing_ids = transaction_sheet.col_values(1)
     if len(existing_ids) > 1:
@@ -187,8 +191,13 @@ if st.session_state['summary']:
         st.session_state['discount'] = discount
         st.rerun()
 
+    # Fixed amount button
+    if st.button("Fixed Amount"):
+        st.session_state['given_cash'] = int(total_price)
+
     # Input for given cash
-    given_cash = st.number_input("Given Cash (Yen)", min_value=0, step=1000)
+    given_cash = st.number_input("Given Cash (Yen)", min_value=0, value=int(st.session_state['given_cash']), step=1000)
+
     change = given_cash - total_price if given_cash >= total_price else 0
     st.write(f"**Change: {change:,} (Yen)**")
 
@@ -214,72 +223,46 @@ if st.session_state['summary']:
             )
 
         st.write(f"## Receipt for Transaction ID: {checkout_id}")
-        st.write(f"**Waktu:** {checkout_time}")
+        for item, details in st.session_state['summary'].items():
+            st.write(f"**Item:** {item} | **Quantity:** {details['quantity']} | **Subtotal:** {details['price'] * details['quantity']:,} Yen")
+        st.write(f"**Time:** {checkout_time}")
         st.write(f"**Total Price:** {total_price:,} Yen")
         st.write(f"**Given Cash:** {given_cash:,} Yen")
         st.write(f"**Change:** {change:,} Yen")
 
+        st.download_button(
+            "Download Receipt",
+            data=generate_pdf(checkout_id, transaction_sheet.get_all_records()),
+            file_name=f"receipt_{checkout_id}.pdf",
+            mime="application/pdf"
+        )
+
         st.session_state['summary'] = {}
-        st.session_state['discount'] = 'None'
-        st.rerun()
+        st.session_state['given_cash'] = 0
+
 else:
-    st.write("No items added to the summary.")
+    st.write("No items added yet.")
 
-# Sidebar for transaction history
-st.sidebar.title("Transaction History")
-
-# Load transaction history from "Transaction" sheet
-transaction_data = transaction_sheet.get_all_records()
-
-transaction_ids = sorted(list(set([transaction['ID'] for transaction in transaction_data])))
-selected_transaction_id = st.sidebar.selectbox("Select Transaction ID", transaction_ids)
-
-if selected_transaction_id:
-    selected_transactions = [transaction for transaction in transaction_data if transaction['ID'] == selected_transaction_id]
-    if selected_transactions:
-        st.sidebar.write(f"### Transaction ID: {selected_transaction_id}")
-        st.sidebar.write(f"**Waktu:** {selected_transactions[0]['Waktu']}")
-
-        for transaction in selected_transactions:
-            item = transaction['Item']
-            price = transaction['Harga']
-            quantity = transaction['Quantity']
-            subtotal = transaction['Subtotal']
-            total = transaction['Total']
-            given_cash = transaction['Bayar']
-            change = transaction['Kembalian']
-
-            col1, col2, col3, col4, col5 = st.sidebar.columns(5)
-            with col1:
-                st.sidebar.write(item)
-            with col2:
-                st.sidebar.write(f"{price:,} Yen")
-            with col3:
-                new_quantity = st.sidebar.number_input(f"Quantity ({item})", min_value=0, value=int(quantity), key=f"qty_{item}_{selected_transaction_id}")
-                if new_quantity != quantity:
-                    update_transaction(selected_transaction_id, item, new_quantity, int(price))
-            with col4:
-                st.sidebar.write(f"Subtotal: {subtotal:,} Yen")
-            with col5:
-                st.sidebar.write(f"Total: {total:,} Yen")
-
-        transaction_df = pd.DataFrame(selected_transactions)
-        transaction_df = transaction_df[["Item", "Quantity", "Harga", "Subtotal"]]
-        st.sidebar.write("### Transaction Details")
-        st.sidebar.dataframe(transaction_df)
-
-        total_price = transaction_df["Subtotal"].sum()
-        st.sidebar.write(f"**Total Price: {total_price:,} Yen**")
-        st.sidebar.write(f"**Given Cash: {given_cash:,} Yen**")
-        st.sidebar.write(f"**Change: {change:,} Yen**")
-
-        # Download receipt as PDF
-        if st.sidebar.button("Generate Receipt as PDF"):
-            with st.spinner('Please wait...'):
-                pdf_content = generate_pdf(selected_transaction_id, selected_transactions)
-                st.sidebar.download_button(
-                    label="Download Receipt",
-                    data=pdf_content,
-                    file_name=f"receipt_{selected_transaction_id}.pdf",
+# Add a sidebar for transaction history
+with st.sidebar:
+    st.write("## Transaction History")
+    all_transactions = transaction_sheet.get_all_records()
+    if all_transactions:
+        history_df = pd.DataFrame(all_transactions)
+        unique_ids = history_df["ID"].unique()
+        for transaction_id in unique_ids:
+            transaction_records = history_df[history_df["ID"] == transaction_id]
+            with st.expander(f"Transaction ID: {transaction_id}"):
+                for _, transaction in transaction_records.iterrows():
+                    st.write(f"{transaction['Waktu']}: {transaction['Item']} x {transaction['Quantity']} - {transaction['Subtotal']:,} Yen")
+                st.write(f"**Total:** {transaction_records['Total'].max():,} Yen")
+                st.write(f"**Given Cash:** {transaction_records['Bayar'].max():,} Yen")
+                st.write(f"**Change:** {transaction_records['Kembalian'].max():,} Yen")
+                st.download_button(
+                    "Download Receipt",
+                    data=generate_pdf(transaction_id, transaction_records.to_dict(orient='records')),
+                    file_name=f"receipt_{transaction_id}.pdf",
                     mime="application/pdf"
                 )
+    else:
+        st.write("No transactions recorded yet.")
