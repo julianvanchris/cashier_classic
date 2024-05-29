@@ -179,7 +179,7 @@ if st.session_state['summary']:
                 st.rerun()
 
     st.write(f"**Total Quantity: {total_quantity}**")
-    st.write(f"**Total Price: {total_price:,} Yen**")
+    st.markdown(f"<h2 style='font-size: 24px;'>Total Price: {total_price:,} Yen</h2>", unsafe_allow_html=True)
 
     # Discount radio buttons
     discount = st.radio(
